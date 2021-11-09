@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+
+  database:
+    container_name: perusable-database-prod
+    environment:
+      - POSTGRES_DB=perusable
+      - POSTGRES_USER=perusable
+      - POSTGRES_PASSWORD=perusable
+    image: postgres:13.2
+    ports:
+      - 5432:5432
+    volumes:
+      - perusable-database-prod:/var/lib/postgresql/data
+
+  elasticsearch:
+    container_name: perusable-elasticsearch-prod
+    environment:
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
+    image: elasticsearch:7.10.1
+    ports:
+      - 9200:9200
+    volumes:
+      - perusable-elasticsearch-prod:/usr/share/elasticsearch/data
+
+  server:
+    build:
+      context: ./server
+    container_name: perusable-server-prod
+    depends_on:
+      - database
+      - elasticsearch
+    env_file:
+      - ./server/.env.prod
+    command: [ "bash", "./scripts/start.prod.sh" ]
+    ports:
+      - 8000
+    volumes:
+      - ./server:/usr/src/app
+      - static:/usr/src/app/static
+
+  reverse-proxy:
+    build:
+      context: ./reverse-proxy
+    container_name: perusable-reverse-proxy
+    depends_on:
+      - server
+    ports:
+      - 8000:80
+    restart: always
+    volumes:
+      - static:/usr/src/app/static
+
+volumes:
+  perusable-database-prod:
+  perusable-elasticsearch-prod:
+  static:
